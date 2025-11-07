@@ -87,7 +87,7 @@ export async function callAgent(
 
           // instantiate embeddings & vector store (matches seed settings)
           const embeddingsClient = new GoogleGenerativeAIEmbeddings({
-            apiKey: process.env.GOOGLE_API_KEY!,
+            apiKey: process.env.GOOGLE_API_KEY || "",
             modelName: "text-embedding-004",
           });
 
@@ -216,7 +216,7 @@ export async function callAgent(
       model: "gemini-2.5-flash",
       temperature: 0,
       maxRetries: 0,
-      apiKey: process.env.GOOGLE_API_KEY!,
+      apiKey: process.env.GOOGLE_API_KEY || "",
     }).bindTools(tools);
 
     // Decision engine: LangGraph will route to tools when model issues tool_calls
