@@ -2,7 +2,7 @@ import "dotenv/config";
 import express from "express";
 import type { Request, Response, Express } from "express";
 import { MongoClient } from "mongodb";
-import { callAgent } from "./agent.ts";
+import { callAgent } from "./agent.js";
 
 const app: Express = express();
 

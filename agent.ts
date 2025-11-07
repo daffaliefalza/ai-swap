@@ -54,6 +54,12 @@ export async function callAgent(
   thread_id: string
 ) {
   try {
+    // Validate API key exists
+    const apiKey = process.env.GOOGLE_API_KEY;
+    if (!apiKey) {
+      throw new Error("GOOGLE_API_KEY environment variable is required");
+    }
+
     const dbName = "inventory_database";
     const db = client.db(dbName);
     const collection = db.collection("items");
@@ -87,7 +93,7 @@ export async function callAgent(
 
           // instantiate embeddings & vector store (matches seed settings)
           const embeddingsClient = new GoogleGenerativeAIEmbeddings({
-            apiKey: process.env.GOOGLE_API_KEY || "",
+            apiKey: apiKey,
             modelName: "text-embedding-004",
           });
 
@@ -106,32 +112,24 @@ export async function callAgent(
           // Normalize results to array of { id, score, source, summary, metadata }
           const normalized: Array<any> = [];
           for (const r of rawResults) {
-            // the library may return [doc, score] or { document, score }
-            let doc: any;
-            let score: number | null = null;
-            if (Array.isArray(r) && r.length >= 2) {
-              doc = r[0];
-              score = r[1];
-            } else if (r?.document && r?.score !== undefined) {
-              doc = r.document;
-              score = r.score;
-            } else {
-              doc = r;
-            }
+            // FIX: The library returns [doc, score] tuple - use array destructuring
+            const [doc, score] = r;
 
             const meta = doc.metadata ?? {};
-            const source = meta.source ?? doc.source ?? "unknown";
+            const docAny = doc as any;
+
+            const source = meta.source ?? docAny.source ?? "unknown";
 
             // create friendly summary depending on source
             let summary = "";
             if (source === "dummyProjects" || meta.raw) {
               // prefer raw structured fields if available
-              const raw = meta.raw ?? doc.metadata?.raw ?? doc.raw ?? {};
+              const raw = meta.raw ?? doc.metadata?.raw ?? docAny.raw ?? {};
               const projectName =
                 raw.projectName ??
                 raw.ProjectName ??
                 meta.projectName ??
-                doc.pageContent?.slice(0, 80);
+                docAny.pageContent?.slice(0, 80);
               const location = raw.location ?? raw.Location ?? meta.location;
               const price = raw.price ?? raw.Price;
               const sequestration =
@@ -147,7 +145,7 @@ export async function callAgent(
                 stock ? ` | Stock: ${stock}` : ""
               }`;
             } else if (source === "csv" || meta.row) {
-              const row = meta.row ?? doc.row ?? {};
+              const row = meta.row ?? docAny.row ?? {};
               const nama =
                 row.nama_lokasi ??
                 row.nama_lokasi ??
@@ -172,7 +170,7 @@ export async function callAgent(
             }
 
             normalized.push({
-              id: doc.metadata?._id ?? doc._id ?? meta._id,
+              id: doc.metadata?._id ?? docAny._id ?? meta._id,
               score,
               source,
               summary,
@@ -216,7 +214,7 @@ export async function callAgent(
       model: "gemini-2.5-flash",
       temperature: 0,
       maxRetries: 0,
-      apiKey: process.env.GOOGLE_API_KEY || "",
+      apiKey: apiKey,
     }).bindTools(tools);
 
     // Decision engine: LangGraph will route to tools when model issues tool_calls
